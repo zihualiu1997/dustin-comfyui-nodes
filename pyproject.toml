@@ -1,0 +1,16 @@
+[project]
+name = "dustin-comfyui-nodes"
+version = "0.2.0"
+description = "Starter ComfyUI custom node pack for Dustin's reusable utility nodes."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/zihualiu1997/dustin-comfyui-nodes"
+
+[tool.comfy]
+PublisherId = "zihualiu1997"
+DisplayName = "Dustin ComfyUI Nodes"
+# Icon = "https://example.com/icon.png"
