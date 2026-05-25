@@ -3,6 +3,9 @@
 A starter ComfyUI custom node pack for collecting your own reusable nodes and
 publishing them through GitHub, Comfy Registry, and ComfyUI-Manager.
 
+I wrote some of these nodes for my own workflows first, then organized them into
+this reusable package.
+
 ## What this repository is
 
 In ComfyUI, a custom node pack is a Python package placed inside
