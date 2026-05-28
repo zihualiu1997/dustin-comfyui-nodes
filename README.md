@@ -81,11 +81,15 @@ Inputs:
   - `text`: text-to-world (`text_prompt` required).
   - `image_url`: image-to-world from a public URL (`image_url` required).
   - `image_tensor`: image-to-world from a ComfyUI `IMAGE` input (`image` required).
-- `text_prompt`: text guidance (required for `text`; optional for image modes).
+  - `multi_image_json`: multi-image from a JSON array (`multi_image_json` or builder node output).
+  - `video_url`: video-to-world from a public URL (`video_url` required).
+  - `video_file`: local video file (`video_path` or `media_asset_id` required).
+- `text_prompt`: text guidance (required for `text`; optional for other modes).
 - `model`: `marble-1.1`, `marble-1.1-plus`, `marble-1.0`, or `marble-1.0-draft`.
 - `display_name`: optional world name (max 64 characters).
 - `seed`: random seed (`-1` omits seed from the request).
 - `is_pano`: mark the input image as a panorama (image modes only).
+- `reconstruct_images`: multi-image reconstruction mode (up to 8 images).
 - `disable_recaption`: send `text_prompt` as-is without automatic recaptioning.
 - `poll_interval_seconds` / `max_wait_seconds`: operation polling controls.
 
@@ -97,6 +101,75 @@ Outputs:
 - `asset_urls_json`: thumbnail, panorama, mesh, and Gaussian splat download URLs.
 
 Recommended image formats for URL / tensor modes: `jpg`, `jpeg`, `png`, `webp`.
+Recommended video formats: `mp4`, `mov`, `mkv`.
+
+### Dustin Marble Build Multi-Image Prompt
+
+Category: `Dustin Nodes/Marble`
+
+Uploads an `IMAGE` batch and builds `multi_image_json` for the generate node.
+
+Inputs:
+
+- `images`: square scene photos as an image batch.
+- `azimuths`: comma-separated degrees, one per image (example: `0,90,180,270`).
+- `upload_mode`: `media_asset` (recommended) or `data_base64`.
+
+Output:
+
+- `multi_image_json`: JSON array for `Dustin Marble Generate World` (`prompt_type = multi_image_json`).
+
+### Dustin Marble Generate Multi-Image World
+
+Category: `Dustin Nodes/Marble`
+
+All-in-one multi-image generation: uploads batch images, starts generation, polls until done.
+
+### Dustin Marble Upload Video
+
+Category: `Dustin Nodes/Marble`
+
+Uploads a local video via Marble `media-assets:prepare_upload` and returns `media_asset_id`.
+
+Inputs:
+
+- `video_path`: absolute or relative path to `mp4`, `mov`, `mkv`, etc.
+
+### Dustin Marble Generate Video World
+
+Category: `Dustin Nodes/Marble`
+
+Video-to-world generation from either a public `video_url` or a local file / uploaded `media_asset_id`.
+
+### Dustin Marble Preview Thumbnail
+
+Category: `Dustin Nodes/Marble`
+
+Downloads the world thumbnail and shows it in the ComfyUI preview panel.
+
+Inputs (either one):
+
+- `asset_urls_json` from a generate node, or
+- `image_url` with a direct thumbnail URL.
+
+Outputs:
+
+- `image`: ComfyUI `IMAGE` tensor for downstream nodes.
+
+### Dustin Marble Preview Panorama
+
+Category: `Dustin Nodes/Marble`
+
+Downloads the world panorama (`pano_url`) and shows it in the ComfyUI preview panel.
+
+Inputs (either one):
+
+- `asset_urls_json` from a generate node, or
+- `image_url` with a direct panorama URL.
+
+Outputs:
+
+- `image`: ComfyUI `IMAGE` tensor (panoramas can be very wide).
 
 ### Dustin Image Atlas Extract
 
@@ -121,8 +194,7 @@ cd path\to\ComfyUI\custom_nodes
 git clone https://github.com/YOUR_GITHUB_USERNAME/dustin-comfyui-nodes.git
 ```
 
-Then restart ComfyUI and search for `Dustin Text Prefix`, `Dustin Image Atlas`,
-`Dustin Image Atlas Extract`, or `Dustin Marble Generate World`.
+Then restart ComfyUI and search for `Dustin` to find all nodes in this pack.
 
 ## Repository layout
 
