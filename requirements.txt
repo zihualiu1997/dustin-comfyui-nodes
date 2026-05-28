@@ -1,2 +1,2 @@
-# Add third-party Python dependencies here only when a node really needs them.
-# This starter node uses only Python's standard library.
+# Marble API node
+requests>=2.31.0,<3

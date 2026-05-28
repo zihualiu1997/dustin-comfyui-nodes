@@ -63,6 +63,41 @@ Behavior:
 - Wraps to a new row when the next image would exceed `max_width`.
 - Raises an error instead of resizing or dropping images when the atlas would exceed `max_height`.
 
+### Dustin Marble Generate World
+
+Category: `Dustin Nodes/Marble`
+
+Calls the [World Labs Marble API](https://docs.worldlabs.ai/api) to generate a 3D world,
+then polls until the long-running operation completes (typically about 5 minutes).
+
+Authentication:
+
+- Set `api_key` on the node, or
+- Set the `WLT_API_KEY` environment variable before starting ComfyUI.
+
+Inputs:
+
+- `prompt_type`:
+  - `text`: text-to-world (`text_prompt` required).
+  - `image_url`: image-to-world from a public URL (`image_url` required).
+  - `image_tensor`: image-to-world from a ComfyUI `IMAGE` input (`image` required).
+- `text_prompt`: text guidance (required for `text`; optional for image modes).
+- `model`: `marble-1.1`, `marble-1.1-plus`, `marble-1.0`, or `marble-1.0-draft`.
+- `display_name`: optional world name (max 64 characters).
+- `seed`: random seed (`-1` omits seed from the request).
+- `is_pano`: mark the input image as a panorama (image modes only).
+- `disable_recaption`: send `text_prompt` as-is without automatic recaptioning.
+- `poll_interval_seconds` / `max_wait_seconds`: operation polling controls.
+
+Outputs:
+
+- `world_json`: full world payload from the completed operation.
+- `world_id`: generated world ID.
+- `marble_url`: link to open the world in Marble.
+- `asset_urls_json`: thumbnail, panorama, mesh, and Gaussian splat download URLs.
+
+Recommended image formats for URL / tensor modes: `jpg`, `jpeg`, `png`, `webp`.
+
 ### Dustin Image Atlas Extract
 
 Category: `Dustin Nodes/Image`
@@ -87,7 +122,7 @@ git clone https://github.com/YOUR_GITHUB_USERNAME/dustin-comfyui-nodes.git
 ```
 
 Then restart ComfyUI and search for `Dustin Text Prefix`, `Dustin Image Atlas`,
-or `Dustin Image Atlas Extract`.
+`Dustin Image Atlas Extract`, or `Dustin Marble Generate World`.
 
 ## Repository layout
 
@@ -131,4 +166,5 @@ This project uses semantic versioning:
 
 ## Notes
 
-This starter node uses only the Python standard library.
+Most nodes use only the Python standard library. The Marble node also requires
+`requests` (see `requirements.txt`).
