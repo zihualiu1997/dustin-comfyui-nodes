@@ -179,8 +179,9 @@ Interactive **equirectangular** panorama viewer embedded in the node. After you 
 drag inside the node to look around and use the mouse wheel to zoom (similar to a 360° web viewer).
 
 Uses a DOM widget with an embedded viewer page (`js/pano_embed.html`) so pointer events are not
-stolen by the workflow canvas (works in both Node 1.0 and Node 2.0 UIs). Pannellum is bundled under
-`js/vendor/pannellum/` (no CDN).
+stolen by the workflow canvas (works in both Node 1.0 and Node 2.0 UIs). Does not show the default
+flat ComfyUI image preview at the bottom of the node. Pannellum is bundled under `js/vendor/pannellum/`
+(no CDN).
 
 Recommended workflow:
 

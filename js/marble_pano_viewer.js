@@ -4,18 +4,11 @@ import { api } from "../../scripts/api.js";
 const NODE_NAME = "DustinMarblePano360Viewer";
 const VIEWER_MIN_HEIGHT = 360;
 const MSG_SOURCE = "dustin.marble.pano";
+const PANO_UI_KEY = "dustin_pano_360";
 
-function getExtensionJsBaseUrl() {
-    const scripts = [...document.querySelectorAll("script[src]")];
-    const selfScript = scripts.find((entry) => entry.src.includes("marble_pano_viewer.js"));
-    if (selfScript) {
-        return selfScript.src.replace(/marble_pano_viewer\.js(?:\?.*)?$/, "");
-    }
-    return "/extensions/dustin-comfyui-nodes/js/";
-}
-
+/** Same directory as this module (ComfyUI serves WEB_DIRECTORY without a /js/ URL prefix). */
 function getEmbedPageUrl() {
-    return `${getExtensionJsBaseUrl()}pano_embed.html`;
+    return new URL("pano_embed.html", import.meta.url).href;
 }
 
 function imageToViewUrl(image) {
@@ -157,7 +150,8 @@ app.registerExtension({
         const onExecuted = nodeType.prototype.onExecuted;
         nodeType.prototype.onExecuted = function (message) {
             onExecuted?.apply(this, arguments);
-            this.panoController?.loadFromImages(message?.images);
+            const panoImages = message?.[PANO_UI_KEY] ?? message?.images;
+            this.panoController?.loadFromImages(panoImages);
             requestAnimationFrame(() => this.panoController?.resize());
         };
     },

@@ -1,7 +1,10 @@
+import os
+import uuid
+
 import torch
 
 from .marble_api import MarbleApiError
-from .marble_preview import _download_image_tensor, _preview_ui, _resolve_url
+from .marble_preview import _download_image_tensor, _resolve_url
 
 
 def _tensor_from_pil(pil_image):
@@ -60,10 +63,23 @@ def _load_panorama_image(asset_urls_json: str, image_url: str, image, max_previe
     return pil_image
 
 
+def _pano_viewer_ui(pil_image) -> dict:
+    """Temp file reference for the iframe viewer (not ComfyUI's flat image preview)."""
+    try:
+        import folder_paths
+    except ImportError:
+        return {"dustin_pano_360": []}
+
+    filename = f"marble_pano360_{uuid.uuid4().hex}.png"
+    full_path = os.path.join(folder_paths.get_temp_directory(), filename)
+    pil_image.save(full_path, format="PNG")
+    return {"dustin_pano_360": [{"filename": filename, "subfolder": "", "type": "temp"}]}
+
+
 class DustinMarblePano360ViewerNode:
     CATEGORY = "Dustin Nodes/Marble"
     FUNCTION = "view_pano"
-    OUTPUT_NODE = True
+    OUTPUT_NODE = False
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("image",)
 
@@ -103,4 +119,4 @@ class DustinMarblePano360ViewerNode:
             max_preview_width=max_preview_width,
         )
         tensor = _tensor_from_pil(pil_image)
-        return {"ui": _preview_ui(pil_image), "result": (tensor,)}
+        return {"ui": _pano_viewer_ui(pil_image), "result": (tensor,)}
