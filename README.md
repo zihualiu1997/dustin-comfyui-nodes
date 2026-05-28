@@ -160,7 +160,7 @@ Outputs:
 
 Category: `Dustin Nodes/Marble`
 
-Downloads the world panorama (`pano_url`) and shows it in the ComfyUI preview panel.
+Downloads the world panorama (`pano_url`) and shows it in the ComfyUI preview panel as a flat image.
 
 Inputs (either one):
 
@@ -170,6 +170,41 @@ Inputs (either one):
 Outputs:
 
 - `image`: ComfyUI `IMAGE` tensor (panoramas can be very wide).
+
+### Dustin Marble Pano 360 Viewer
+
+Category: `Dustin Nodes/Marble`
+
+Interactive **equirectangular** panorama viewer embedded in the node. After you queue the workflow,
+drag inside the node to look around and use the mouse wheel to zoom (similar to a 360° web viewer).
+
+Requires the classic ComfyUI node UI (uses `addDOMWidget` + Pannellum WebGL). Pannellum is bundled under
+`js/vendor/pannellum/` (no CDN).
+
+Recommended workflow:
+
+```text
+Dustin Marble Generate World → asset_urls_json → Dustin Marble Pano 360 Viewer
+```
+
+Inputs (at least one):
+
+- `asset_urls_json` from a generate node (uses `pano_url`),
+- `image_url` with a direct panorama URL, or
+- `image` from an upstream `IMAGE` output.
+
+Options:
+
+- `max_preview_width`: downscales very large panoramas before preview (default `4096`) to avoid WebGL limits.
+
+Outputs:
+
+- `image`: ComfyUI `IMAGE` tensor for downstream nodes (Save Image, etc.).
+
+Notes:
+
+- Panoramas are downloaded on the server first (avoids CORS issues with Marble CDN URLs).
+- Use **Preview Panorama** for a quick flat preview; use **Pano 360 Viewer** for interactive look-around.
 
 ### Dustin Image Atlas Extract
 

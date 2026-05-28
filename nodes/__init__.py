@@ -4,6 +4,7 @@ from .marble_multi_image import (
     DustinMarbleBuildMultiImagePromptNode,
     DustinMarbleGenerateMultiImageWorldNode,
 )
+from .marble_pano_viewer import DustinMarblePano360ViewerNode
 from .marble_preview import DustinMarblePreviewPanoNode, DustinMarblePreviewThumbnailNode
 from .marble_video import DustinMarbleGenerateVideoWorldNode, DustinMarbleUploadVideoNode
 from .marble_world import DustinMarbleGenerateWorldNode
@@ -19,6 +20,7 @@ NODE_CLASS_MAPPINGS = {
     "DustinMarbleGenerateVideoWorld": DustinMarbleGenerateVideoWorldNode,
     "DustinMarblePreviewThumbnail": DustinMarblePreviewThumbnailNode,
     "DustinMarblePreviewPano": DustinMarblePreviewPanoNode,
+    "DustinMarblePano360Viewer": DustinMarblePano360ViewerNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -32,6 +34,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DustinMarbleGenerateVideoWorld": "Dustin Marble Generate Video World",
     "DustinMarblePreviewThumbnail": "Dustin Marble Preview Thumbnail",
     "DustinMarblePreviewPano": "Dustin Marble Preview Panorama",
+    "DustinMarblePano360Viewer": "Dustin Marble Pano 360 Viewer",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
