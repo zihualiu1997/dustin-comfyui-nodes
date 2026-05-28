@@ -3,88 +3,19 @@ import { api } from "../../scripts/api.js";
 
 const NODE_NAME = "DustinMarblePano360Viewer";
 const VIEWER_MIN_HEIGHT = 360;
+const MSG_SOURCE = "dustin.marble.pano";
 
-let pannellumLoadPromise = null;
-
-/** Keep LiteGraph / ComfyUI canvas from treating drags inside the viewer as node moves. */
-function preventNodePointerCapture(element) {
-    const stop = (event) => {
-        event.stopPropagation();
-    };
-    const types = [
-        "mousedown",
-        "mousemove",
-        "mouseup",
-        "pointerdown",
-        "pointermove",
-        "pointerup",
-        "wheel",
-        "touchstart",
-        "touchmove",
-        "touchend",
-        "contextmenu",
-    ];
-    for (const type of types) {
-        element.addEventListener(type, stop, false);
-    }
-}
-
-function getPannellumBaseUrl() {
+function getExtensionJsBaseUrl() {
     const scripts = [...document.querySelectorAll("script[src]")];
     const selfScript = scripts.find((entry) => entry.src.includes("marble_pano_viewer.js"));
     if (selfScript) {
-        return selfScript.src.replace(/marble_pano_viewer\.js(?:\?.*)?$/, "vendor/pannellum/");
+        return selfScript.src.replace(/marble_pano_viewer\.js(?:\?.*)?$/, "");
     }
-    return "/extensions/dustin-comfyui-nodes/vendor/pannellum/";
+    return "/extensions/dustin-comfyui-nodes/js/";
 }
 
-function loadStylesheet(href) {
-    return new Promise((resolve, reject) => {
-        if (document.querySelector(`link[href="${href}"]`)) {
-            resolve();
-            return;
-        }
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.href = href;
-        link.onload = () => resolve();
-        link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
-        document.head.appendChild(link);
-    });
-}
-
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        if (window.pannellum) {
-            resolve(window.pannellum);
-            return;
-        }
-        const existing = document.querySelector(`script[src="${src}"]`);
-        if (existing) {
-            existing.addEventListener("load", () => resolve(window.pannellum));
-            existing.addEventListener("error", reject);
-            return;
-        }
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = true;
-        script.onload = () => resolve(window.pannellum);
-        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-        document.head.appendChild(script);
-    });
-}
-
-function ensurePannellum() {
-    if (window.pannellum) {
-        return Promise.resolve(window.pannellum);
-    }
-    if (!pannellumLoadPromise) {
-        const base = getPannellumBaseUrl();
-        pannellumLoadPromise = loadStylesheet(`${base}pannellum.css`)
-            .then(() => loadScript(`${base}pannellum.js`))
-            .then(() => window.pannellum);
-    }
-    return pannellumLoadPromise;
+function getEmbedPageUrl() {
+    return `${getExtensionJsBaseUrl()}pano_embed.html`;
 }
 
 function imageToViewUrl(image) {
@@ -98,106 +29,74 @@ function imageToViewUrl(image) {
     return api.apiURL(`/view?${params.toString()}`);
 }
 
-function scheduleViewerResize(viewer) {
-    if (!viewer || typeof viewer.resize !== "function") {
-        return;
-    }
-    requestAnimationFrame(() => {
-        viewer.resize();
-        requestAnimationFrame(() => viewer.resize());
-    });
-}
-
 function createPanoViewer(node, container) {
-    const mount = document.createElement("div");
-    mount.className = "dustin-marble-pano-mount";
-    mount.style.width = "100%";
-    mount.style.height = `${VIEWER_MIN_HEIGHT}px`;
-    mount.style.minHeight = `${VIEWER_MIN_HEIGHT}px`;
-    mount.style.borderRadius = "6px";
-    mount.style.overflow = "hidden";
-    mount.style.background = "#111";
-    mount.style.touchAction = "none";
-    container.appendChild(mount);
-    preventNodePointerCapture(container);
-    preventNodePointerCapture(mount);
+    const iframe = document.createElement("iframe");
+    iframe.className = "dustin-marble-pano-iframe";
+    iframe.title = "360° panorama viewer";
+    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+    iframe.style.border = "0";
+    iframe.style.display = "block";
+    iframe.style.background = "#111";
+    iframe.src = getEmbedPageUrl();
 
-    const placeholder = document.createElement("div");
-    placeholder.textContent = "Queue the workflow to load a 360° panorama.";
-    placeholder.style.color = "#aaa";
-    placeholder.style.fontSize = "12px";
-    placeholder.style.padding = "12px";
-    placeholder.style.textAlign = "center";
-    mount.appendChild(placeholder);
+    container.appendChild(iframe);
 
-    let viewer = null;
-    let resizeObserver = null;
+    let embedReady = false;
+    let pendingUrl = null;
 
-    function bindViewerResize() {
-        if (!viewer) {
+    function postToEmbed(message) {
+        if (!iframe.contentWindow) {
             return;
         }
-        scheduleViewerResize(viewer);
-        if (typeof viewer.on === "function") {
-            viewer.on("load", () => scheduleViewerResize(viewer));
-            viewer.on("scenechange", () => scheduleViewerResize(viewer));
+        iframe.contentWindow.postMessage({ source: MSG_SOURCE, ...message }, "*");
+    }
+
+    function sendLoad(url) {
+        if (!url) {
+            return;
+        }
+        if (!embedReady) {
+            pendingUrl = url;
+            return;
+        }
+        postToEmbed({ type: "load", url });
+    }
+
+    function onMessage(event) {
+        if (event.source !== iframe.contentWindow) {
+            return;
+        }
+        const data = event.data;
+        if (!data || data.source !== MSG_SOURCE) {
+            return;
+        }
+        if (data.type === "ready") {
+            embedReady = true;
+            if (pendingUrl) {
+                sendLoad(pendingUrl);
+                pendingUrl = null;
+            }
         }
     }
 
-    function teardownViewer() {
-        resizeObserver?.disconnect();
-        resizeObserver = null;
-        if (viewer) {
-            viewer.destroy();
-            viewer = null;
-        }
-        node.panoViewer = null;
-    }
+    window.addEventListener("message", onMessage);
 
-    async function loadFromImages(images) {
+    function loadFromImages(images) {
         if (!images?.length) {
             return;
         }
-        const pannellumLib = await ensurePannellum();
-        const panoramaUrl = imageToViewUrl(images[0]);
-
-        teardownViewer();
-        mount.innerHTML = "";
-
-        viewer = pannellumLib.viewer(mount, {
-            type: "equirectangular",
-            panorama: panoramaUrl,
-            autoLoad: true,
-            showControls: true,
-            mouseZoom: true,
-            draggable: true,
-            friction: 0.15,
-            hfov: 100,
-            minHfov: 40,
-            maxHfov: 120,
-        });
-        node.panoViewer = viewer;
-
-        const pnlmRoot = mount.querySelector(".pnlm-container");
-        if (pnlmRoot) {
-            preventNodePointerCapture(pnlmRoot);
-        }
-
-        bindViewerResize();
-
-        if (typeof ResizeObserver !== "undefined") {
-            resizeObserver = new ResizeObserver(() => scheduleViewerResize(viewer));
-            resizeObserver.observe(mount);
-            resizeObserver.observe(container);
-        }
+        sendLoad(imageToViewUrl(images[0]));
     }
 
     function resize() {
-        scheduleViewerResize(viewer);
+        postToEmbed({ type: "resize" });
     }
 
     function destroy() {
-        teardownViewer();
+        window.removeEventListener("message", onMessage);
+        iframe.remove();
     }
 
     return { loadFromImages, resize, destroy };
@@ -218,38 +117,32 @@ app.registerExtension({
             const container = document.createElement("div");
             container.className = "dustin-marble-pano-container";
             container.style.width = "100%";
-            container.style.height = `${VIEWER_MIN_HEIGHT}px`;
+            container.style.height = "100%";
             container.style.minHeight = `${VIEWER_MIN_HEIGHT}px`;
             container.style.position = "relative";
             container.style.overflow = "hidden";
+            container.style.boxSizing = "border-box";
             container.dataset.captureWheel = "true";
 
             const pano = createPanoViewer(this, container);
             this.panoController = pano;
 
+            const syncViewerLayout = () => {
+                requestAnimationFrame(() => pano.resize());
+            };
+
             this.panoWidget = this.addDOMWidget("pano_360_viewer", "div", container, {
                 getMinHeight: () => VIEWER_MIN_HEIGHT,
+                getHeight: () => VIEWER_MIN_HEIGHT,
                 hideOnZoom: false,
+                margin: 0,
+                afterResize: syncViewerLayout,
             });
 
-            const resizeViewer = () => {
-                const widgetHeight = this.panoWidget?.computedHeight;
-                const height =
-                    typeof widgetHeight === "number" && widgetHeight > 0
-                        ? widgetHeight
-                        : VIEWER_MIN_HEIGHT;
-                container.style.height = `${height}px`;
-                const mount = container.querySelector(".dustin-marble-pano-mount");
-                if (mount) {
-                    mount.style.height = `${height}px`;
-                }
-                pano.resize();
-            };
-            this.panoWidget.onResize = resizeViewer;
             const origOnResize = this.onResize;
             this.onResize = function () {
                 origOnResize?.apply(this, arguments);
-                resizeViewer();
+                syncViewerLayout();
             };
 
             const origOnRemoved = this.onRemoved;

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marble Pano Viewer</title>
+    <link rel="stylesheet" href="vendor/pannellum/pannellum.css" />
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #111;
+        }
+        #viewer {
+            width: 100%;
+            height: 100%;
+        }
+        #placeholder {
+            color: #aaa;
+            font: 12px/1.4 Helvetica, Arial, sans-serif;
+            text-align: center;
+            padding: 12px;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="placeholder">Queue the workflow to load a 360° panorama.</div>
+    <div id="viewer"></div>
+    <script src="vendor/pannellum/pannellum.js"></script>
+    <script>
+        let viewer = null;
+        const placeholder = document.getElementById("placeholder");
+        const mount = document.getElementById("viewer");
+        mount.style.display = "none";
+
+        function destroyViewer() {
+            if (viewer) {
+                viewer.destroy();
+                viewer = null;
+            }
+        }
+
+        function resizeViewer() {
+            if (viewer && typeof viewer.resize === "function") {
+                viewer.resize();
+            }
+        }
+
+        function loadPanorama(url) {
+            destroyViewer();
+            placeholder.style.display = "none";
+            mount.style.display = "block";
+            mount.innerHTML = "";
+
+            viewer = pannellum.viewer("viewer", {
+                type: "equirectangular",
+                panorama: url,
+                autoLoad: true,
+                showControls: true,
+                mouseZoom: true,
+                draggable: true,
+                friction: 0.15,
+                hfov: 100,
+                minHfov: 40,
+                maxHfov: 120,
+                crossOrigin: "anonymous",
+            });
+
+            viewer.on("load", () => {
+                resizeViewer();
+                window.parent.postMessage({ source: "dustin.marble.pano", type: "loaded" }, "*");
+            });
+            viewer.on("error", (message) => {
+                placeholder.textContent = "Failed to load panorama: " + message;
+                placeholder.style.display = "flex";
+                mount.style.display = "none";
+                window.parent.postMessage({ source: "dustin.marble.pano", type: "error", message }, "*");
+            });
+
+            requestAnimationFrame(() => {
+                resizeViewer();
+                requestAnimationFrame(resizeViewer);
+            });
+        }
+
+        window.addEventListener("message", (event) => {
+            const data = event.data;
+            if (!data || data.source !== "dustin.marble.pano") {
+                return;
+            }
+            if (data.type === "load" && data.url) {
+                loadPanorama(data.url);
+            } else if (data.type === "resize") {
+                resizeViewer();
+            }
+        });
+
+        window.addEventListener("resize", resizeViewer);
+
+        window.parent.postMessage({ source: "dustin.marble.pano", type: "ready" }, "*");
+    </script>
+</body>
+</html>

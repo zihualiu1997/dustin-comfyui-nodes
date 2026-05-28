@@ -178,7 +178,8 @@ Category: `Dustin Nodes/Marble`
 Interactive **equirectangular** panorama viewer embedded in the node. After you queue the workflow,
 drag inside the node to look around and use the mouse wheel to zoom (similar to a 360° web viewer).
 
-Requires the classic ComfyUI node UI (uses `addDOMWidget` + Pannellum WebGL). Pannellum is bundled under
+Uses a DOM widget with an embedded viewer page (`js/pano_embed.html`) so pointer events are not
+stolen by the workflow canvas (works in both Node 1.0 and Node 2.0 UIs). Pannellum is bundled under
 `js/vendor/pannellum/` (no CDN).
 
 Recommended workflow:
