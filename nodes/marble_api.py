@@ -27,6 +27,8 @@ PROMPT_TYPES = [
     "video_file",
 ]
 
+DEFAULT_TEXT_PROMPT = "A mystical forest with glowing mushrooms"
+
 
 class MarbleApiError(RuntimeError):
     pass
@@ -191,6 +193,35 @@ def build_multi_image_prompt(
     return entries
 
 
+def resolve_prompt_type(
+    prompt_type: str,
+    text_prompt: str,
+    image_url: str,
+    image,
+    multi_image_json: str,
+    video_url: str,
+    video_path: str,
+    media_asset_id: str,
+) -> tuple[str, str]:
+    """Pick a concrete prompt_type when the widget is still on text but inputs say otherwise."""
+    text = (text_prompt or "").strip()
+    if prompt_type != "text" or text:
+        return prompt_type, text
+
+    if image is not None:
+        return "image_tensor", text
+    if (image_url or "").strip():
+        return "image_url", text
+    if (multi_image_json or "").strip():
+        return "multi_image_json", text
+    if (video_url or "").strip():
+        return "video_url", text
+    if (video_path or "").strip() or (media_asset_id or "").strip():
+        return "video_file", text
+
+    return "text", DEFAULT_TEXT_PROMPT
+
+
 def build_world_prompt(
     prompt_type: str,
     text_prompt: str,
@@ -211,7 +242,10 @@ def build_world_prompt(
 
     if prompt_type == "text":
         if not text:
-            raise MarbleApiError("text_prompt is required when prompt_type is text.")
+            raise MarbleApiError(
+                "text_prompt is empty. Enter a prompt, connect an image/video input "
+                "(prompt_type will auto-switch), or change prompt_type explicitly."
+            )
         return {"type": "text", "text_prompt": text, **common}
 
     if prompt_type == "image_url":

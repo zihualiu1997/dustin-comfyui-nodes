@@ -1,10 +1,12 @@
 from .marble_api import (
     DEFAULT_MAX_WAIT,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_TEXT_PROMPT,
     MARBLE_MODELS,
     PROMPT_TYPES,
     build_world_prompt,
     generate_world_from_prompt,
+    resolve_prompt_type,
     upload_file_path,
 )
 
@@ -25,7 +27,7 @@ class DustinMarbleGenerateWorldNode:
                     "STRING",
                     {
                         "multiline": True,
-                        "default": "A mystical forest with glowing mushrooms",
+                        "default": DEFAULT_TEXT_PROMPT,
                     },
                 ),
                 "model": (MARBLE_MODELS, {"default": "marble-1.1"}),
@@ -73,6 +75,17 @@ class DustinMarbleGenerateWorldNode:
         video_path="",
         media_asset_id="",
     ):
+        prompt_type, text_prompt = resolve_prompt_type(
+            prompt_type=prompt_type,
+            text_prompt=text_prompt,
+            image_url=image_url,
+            image=image,
+            multi_image_json=multi_image_json,
+            video_url=video_url,
+            video_path=video_path,
+            media_asset_id=media_asset_id,
+        )
+
         video_asset_id = (media_asset_id or "").strip()
         if prompt_type == "video_file" and not video_asset_id:
             video_asset_id = upload_file_path(api_key=api_key, file_path=video_path, kind="video")

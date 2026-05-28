@@ -1,6 +1,6 @@
 [project]
 name = "dustin-comfyui-nodes"
-version = "0.4.0"
+version = "0.4.1"
 description = "Starter ComfyUI custom node pack for Dustin's reusable utility nodes."
 readme = "README.md"
 requires-python = ">=3.10"
