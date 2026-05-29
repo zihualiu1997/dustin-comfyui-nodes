@@ -10,6 +10,14 @@ import requests
 API_BASE = "https://api.worldlabs.ai"
 DEFAULT_POLL_INTERVAL = 15
 DEFAULT_MAX_WAIT = 600
+DEFAULT_REQUEST_RETRIES = 5
+_RETRY_BACKOFF_SECONDS = 2.0
+
+_TRANSIENT_REQUEST_ERRORS = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+    requests.exceptions.ChunkedEncodingError,
+)
 
 MARBLE_MODELS = [
     "marble-1.1",
@@ -51,6 +59,34 @@ def raise_for_response(response: requests.Response) -> None:
     except ValueError:
         detail = response.text
     raise MarbleApiError(f"HTTP {response.status_code}: {detail}")
+
+
+def request_with_retry(
+    method: str,
+    url: str,
+    *,
+    retries: int = DEFAULT_REQUEST_RETRIES,
+    backoff_seconds: float = _RETRY_BACKOFF_SECONDS,
+    **kwargs,
+) -> requests.Response:
+    """Retry transient network failures (connection reset, timeouts, etc.)."""
+    last_exc: Exception | None = None
+    attempts = max(1, int(retries))
+
+    for attempt in range(attempts):
+        try:
+            return requests.request(method, url, **kwargs)
+        except _TRANSIENT_REQUEST_ERRORS as exc:
+            last_exc = exc
+            if attempt + 1 >= attempts:
+                break
+            time.sleep(backoff_seconds * (attempt + 1))
+
+    raise MarbleApiError(
+        f"Network error talking to Marble API after {attempts} attempts: {last_exc}. "
+        "Check internet/VPN/proxy or retry later. "
+        "If generation was already submitted, check status on the World Labs platform."
+    ) from last_exc
 
 
 def image_tensor_to_bytes(image, index: int = 0) -> tuple[bytes, str]:
@@ -106,7 +142,8 @@ def upload_media_asset(
     kind: str,
     extension: str,
 ) -> str:
-    response = requests.post(
+    response = request_with_retry(
+        "POST",
         f"{API_BASE}/marble/v1/media-assets:prepare_upload",
         headers=api_headers(api_key),
         json={
@@ -127,7 +164,7 @@ def upload_media_asset(
 
     upload_headers = dict(upload_info.get("required_headers") or {})
     upload_method = (upload_info.get("upload_method") or "PUT").upper()
-    upload_response = requests.request(
+    upload_response = request_with_retry(
         upload_method,
         upload_url,
         headers=upload_headers,
@@ -354,11 +391,12 @@ def start_generation(
     if seed >= 0:
         body["seed"] = int(seed)
 
-    response = requests.post(
+    response = request_with_retry(
+        "POST",
         f"{API_BASE}/marble/v1/worlds:generate",
         headers=api_headers(api_key),
         json=body,
-        timeout=120,
+        timeout=180,
     )
     raise_for_response(response)
     data = response.json()
@@ -372,11 +410,15 @@ def poll_operation(api_key: str, operation_id: str, poll_interval: int, max_wait
     deadline = time.monotonic() + max_wait
     headers = api_headers(api_key)
     url = f"{API_BASE}/marble/v1/operations/{operation_id}"
+    last_metadata: dict | None = None
 
     while True:
-        response = requests.get(url, headers=headers, timeout=60)
+        response = request_with_retry("GET", url, headers=headers, timeout=90)
         raise_for_response(response)
         operation = response.json()
+        metadata = operation.get("metadata")
+        if isinstance(metadata, dict):
+            last_metadata = metadata
 
         if operation.get("done"):
             error = operation.get("error")
@@ -389,9 +431,11 @@ def poll_operation(api_key: str, operation_id: str, poll_interval: int, max_wait
             return world
 
         if time.monotonic() >= deadline:
+            world_id = (last_metadata or {}).get("world_id", "")
+            extra = f" Last known world_id: {world_id}." if world_id else ""
             raise MarbleApiError(
-                f"Timed out after {max_wait}s waiting for operation {operation_id}. "
-                "Increase max_wait_seconds or poll the operation manually."
+                f"Timed out after {max_wait}s waiting for operation {operation_id}.{extra} "
+                "Increase max_wait_seconds or check the job on the World Labs platform."
             )
 
         time.sleep(max(1, poll_interval))
