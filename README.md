@@ -164,7 +164,7 @@ Downloads the world panorama (`pano_url`) and shows it in the ComfyUI preview pa
 
 Inputs (either one):
 
-- `asset_urls_json` from a generate node, or
+- `asset_urls_json` from a generate node (recommended), or full `world_json` (also supported),
 - `image_url` with a direct panorama URL.
 
 Outputs:

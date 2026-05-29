@@ -448,16 +448,114 @@ def normalize_world(world: dict) -> dict:
     return world
 
 
+_PANO_URL_CANDIDATE_KEYS = ("pano_url", "rgb_pano_url", "pano_rgb_url", "equirectangular_url")
+
+
+def _is_http_url(value) -> bool:
+    return isinstance(value, str) and value.strip().lower().startswith(("http://", "https://"))
+
+
+def _first_url(mapping: dict | None, *keys: str) -> str | None:
+    if not isinstance(mapping, dict):
+        return None
+    for key in keys:
+        value = mapping.get(key)
+        if _is_http_url(value):
+            return str(value).strip()
+    return None
+
+
+def find_pano_url(data: dict) -> str | None:
+    """Resolve panorama URL from flat asset_urls_json or nested world_json."""
+    if not isinstance(data, dict):
+        return None
+
+    url = _first_url(data, *_PANO_URL_CANDIDATE_KEYS)
+    if url:
+        return url
+
+    assets = data.get("assets")
+    if not isinstance(assets, dict):
+        return None
+
+    imagery = assets.get("imagery")
+    url = _first_url(imagery if isinstance(imagery, dict) else None, *_PANO_URL_CANDIDATE_KEYS)
+    if url:
+        return url
+
+    return _first_url(assets, *_PANO_URL_CANDIDATE_KEYS)
+
+
+def find_thumbnail_url(data: dict) -> str | None:
+    if not isinstance(data, dict):
+        return None
+
+    url = _first_url(data, "thumbnail_url")
+    if url:
+        return url
+
+    assets = data.get("assets")
+    if isinstance(assets, dict):
+        return _first_url(assets, "thumbnail_url")
+    return None
+
+
+def parse_json_object(raw: str, *, label: str = "JSON") -> dict:
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise MarbleApiError(f"{label} is not valid JSON.") from exc
+
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError as exc:
+            raise MarbleApiError(f"{label} is not valid JSON.") from exc
+
+    if not isinstance(data, dict):
+        raise MarbleApiError(f"{label} must be a JSON object.")
+    return data
+
+
+def resolve_asset_url(asset_urls_json: str, image_url: str, key: str) -> str:
+    direct = (image_url or "").strip()
+    if direct:
+        return direct
+
+    raw = (asset_urls_json or "").strip()
+    if not raw:
+        raise MarbleApiError(
+            f"Provide image_url or asset_urls_json / world_json containing '{key}'."
+        )
+
+    data = parse_json_object(raw, label="asset_urls_json")
+
+    if key == "pano_url":
+        url = find_pano_url(data)
+    elif key == "thumbnail_url":
+        url = find_thumbnail_url(data)
+    else:
+        url = _first_url(data, key)
+        if not url and isinstance(data.get("assets"), dict):
+            url = _first_url(data["assets"], key)
+
+    if not url:
+        hint = ""
+        if key == "pano_url" and isinstance(data.get("assets"), dict):
+            hint = " Connect asset_urls_json from Generate World, or pass full world_json."
+        raise MarbleApiError(f"asset_urls_json does not contain '{key}'.{hint}")
+    return url
+
+
 def extract_asset_urls(world: dict) -> dict:
     assets = world.get("assets") if isinstance(world.get("assets"), dict) else {}
     splats = assets.get("splats") if isinstance(assets.get("splats"), dict) else {}
     spz_urls = splats.get("spz_urls") if isinstance(splats.get("spz_urls"), dict) else {}
     mesh = assets.get("mesh") if isinstance(assets.get("mesh"), dict) else {}
-    imagery = assets.get("imagery") if isinstance(assets.get("imagery"), dict) else {}
     return {
-        "thumbnail_url": assets.get("thumbnail_url"),
+        "thumbnail_url": find_thumbnail_url(world),
         "caption": assets.get("caption"),
-        "pano_url": imagery.get("pano_url"),
+        "pano_url": find_pano_url(world),
         "collider_mesh_url": mesh.get("collider_mesh_url"),
         "spz_100k": spz_urls.get("100k"),
         "spz_500k": spz_urls.get("500k"),

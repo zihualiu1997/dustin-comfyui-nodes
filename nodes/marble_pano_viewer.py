@@ -4,7 +4,8 @@ import uuid
 import torch
 
 from .marble_api import MarbleApiError
-from .marble_preview import _download_image_tensor, _resolve_url
+from .marble_api import resolve_asset_url
+from .marble_preview import _download_image_tensor
 
 
 def _tensor_from_pil(pil_image):
@@ -47,7 +48,7 @@ def _load_panorama_image(asset_urls_json: str, image_url: str, image, max_previe
     if image is not None:
         pil_image = _pil_from_tensor(image)
     else:
-        url = _resolve_url(asset_urls_json, image_url, "pano_url")
+        url = resolve_asset_url(asset_urls_json, image_url, "pano_url")
         _, pil_image = _download_image_tensor(url)
 
     pil_image = _resize_for_preview(pil_image, int(max_preview_width))
